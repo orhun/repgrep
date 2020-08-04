@@ -198,13 +198,10 @@ impl App {
             .list
             .iter()
             .enumerate()
-            .map(|(idx, item)| {
+            .flat_map(|(idx, item)| {
                 let selected = if idx == row { Some(col) } else { None };
-                ListItem::new(vec![item.to_spans(
-                    replacement,
-                    selected,
-                    self.printable_style,
-                )])
+                // FIXME: allow multiline here
+                item.to_spans(replacement, selected, self.printable_style)
             })
             .collect::<Vec<ListItem>>();
 

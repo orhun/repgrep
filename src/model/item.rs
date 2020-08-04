@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use tui::style::{Color, Modifier, Style};
 use tui::text::{Span, Spans};
+use tui::widgets::ListItem;
 
 use crate::model::{Printable, PrintableStyle};
 use crate::rg::de::{ArbitraryData, RgMessage, RgMessageKind, SubMatch};
@@ -21,12 +22,12 @@ impl SubItem {
         }
     }
 
-    pub fn to_span(
+    pub fn to_list_items(
         &self,
         is_replacing: bool,
         is_selected: bool,
         printable_style: PrintableStyle,
-    ) -> Span {
+    ) -> Vec<ListItem> {
         let mut s = Style::default();
         if is_replacing {
             if self.should_replace {
@@ -50,7 +51,12 @@ impl SubItem {
             }
         }
 
-        Span::styled(self.sub_match.text.to_printable(printable_style), s)
+        self.sub_match
+            .text
+            .lossy_utf8()
+            .lines()
+            .map(|line| ListItem::new(Span::styled(line.to_printable(printable_style), s)))
+            .collect()
     }
 }
 
@@ -161,7 +167,7 @@ impl Item {
         replacement: Option<&str>,
         selected_col: Option<usize>,
         printable_style: PrintableStyle,
-    ) -> Spans {
+    ) -> Vec<ListItem> {
         let mut base_style = Style::default();
         if replacement.is_none() && selected_col.is_some() {
             base_style = base_style.fg(Color::Yellow);
@@ -169,41 +175,39 @@ impl Item {
 
         // TODO: handle multiline matches
         match &self.rg_message {
-            RgMessage::Begin { .. } => Spans::from(Span::styled(
+            RgMessage::Begin { .. } => vec![ListItem::new(Span::styled(
                 format!("{}", self.path_buf().unwrap().display()),
                 if replacement.is_none() && selected_col.is_some() {
                     base_style.fg(Color::Black).bg(Color::Yellow)
                 } else {
                     base_style.fg(Color::Magenta)
                 },
-            )),
+            ))],
             RgMessage::Context {
                 lines, line_number, ..
             } => {
-                let mut spans = vec![];
-                if let Some(n) = line_number {
-                    spans.push(Item::line_number_to_span(
-                        base_style,
-                        selected_col.is_some(),
-                        *n,
-                    ));
+                let mut list_items = vec![];
+                for (i, line) in lines.lossy_utf8().trim_end().lines().enumerate() {
+                    let span = Span::styled(line.to_string(), base_style);
+                    if i == 0 && line_number.is_some() {
+                        list_items.push(ListItem::new(Spans::from(vec![
+                            Item::line_number_to_span(
+                                base_style,
+                                selected_col.is_some(),
+                                line_number.unwrap(),
+                            ),
+                            span,
+                        ])));
+                    } else {
+                        list_items.push(ListItem::new(span));
+                    }
                 }
 
-                spans.push(Span::styled(lines.lossy_utf8(), base_style));
-                Spans::from(spans)
+                list_items
             }
             RgMessage::Match {
                 lines, line_number, ..
             } => {
-                let mut spans = vec![];
-                if let Some(n) = line_number {
-                    spans.push(Item::line_number_to_span(
-                        base_style,
-                        selected_col.is_some(),
-                        *n,
-                    ));
-                }
-
                 // Read the lines as bytes since we convert each span to a string when it's created.
                 // This ensures our alignments are correct.
                 let lines_bytes = lines.to_vec();
@@ -211,6 +215,7 @@ impl Item {
                     Span::styled(r.to_printable(printable_style), base_style.fg(Color::Green))
                 });
 
+                let mut list_items = vec![];
                 let mut offset = 0;
                 for (idx, sub_item) in self.sub_items.iter().enumerate() {
                     let Range { start, end } = sub_item.sub_match.range;
@@ -219,23 +224,32 @@ impl Item {
                     let leading = offset..start;
                     #[allow(clippy::len_zero)]
                     if leading.len() > 0 {
-                        spans.push(Span::styled(
-                            String::from_utf8_lossy(&lines_bytes[leading]).to_string(),
-                            base_style,
-                        ));
+                        for line in String::from_utf8_lossy(&lines_bytes[leading]).lines() {
+                            let span = Span::styled(line.to_string(), base_style);
+                            if idx == 0 && line_number.is_some() {
+                                list_items.push(ListItem::new(Spans::from(vec![
+                                    Item::line_number_to_span(
+                                        base_style,
+                                        selected_col.is_some(),
+                                        line_number.unwrap(),
+                                    ),
+                                    span,
+                                ])));
+                            } else {
+                                list_items.push(ListItem::new(span));
+                            }
+                        }
                     }
 
-                    // Match text.
-                    spans.push(sub_item.to_span(
-                        replacement.is_some(),
-                        Some(idx) == selected_col,
-                        printable_style,
-                    ));
+                    list_items.append(
+                        &mut sub_item
+                            .to_list_items(replacement.is_some(), Some(idx) == selected_col, printable_style),
+                    );
 
                     // Replacement text.
                     if sub_item.should_replace {
                         if let Some(span) = replacement_span.as_ref() {
-                            spans.push(span.clone());
+                            list_items.push(ListItem::new(span.clone()));
                         }
                     }
 
@@ -246,19 +260,23 @@ impl Item {
                 let trailing = offset..lines_bytes.len();
                 #[allow(clippy::len_zero)]
                 if trailing.len() > 0 {
-                    spans.push(Span::styled(
-                        String::from_utf8_lossy(&lines_bytes[trailing]).to_string(),
-                        base_style,
-                    ));
+                    for line in String::from_utf8_lossy(&lines_bytes[trailing])
+                        .trim_end()
+                        .lines()
+                    {
+                        list_items.push(ListItem::new(Span::styled(line.to_string(), base_style)));
+                    }
                 }
 
-                Spans::from(spans)
+                list_items
             }
-            RgMessage::End { .. } => Spans::from(""),
-            RgMessage::Summary { elapsed_total, .. } => Spans::from(Span::styled(
-                format!("Search duration: {}", elapsed_total.human),
-                base_style,
-            )),
+            RgMessage::End { .. } => vec![ListItem::new(Spans::from(""))],
+            RgMessage::Summary { elapsed_total, .. } => {
+                vec![ListItem::new(Spans::from(Span::styled(
+                    format!("Search duration: {}", elapsed_total.human),
+                    base_style,
+                )))]
+            }
         }
     }
 }
