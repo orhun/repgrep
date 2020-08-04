@@ -1,20 +1,31 @@
 mod args;
 
-use std::ffi::OsString;
+use std::error::Error;
+use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
 use clap::{Clap, IntoApp};
 
-use args::Args;
+pub use args::Args;
+
+#[derive(Debug)]
+pub struct NoArgumentsError;
+
+impl Display for NoArgumentsError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Error for NoArgumentsError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(self)
+    }
+}
 
 /// This is where we perform our validation of the arguments.
 fn validate_arguments(mut args: Args) -> Result<Args> {
-    // Check we have a pattern.
-    if args.pattern.is_none() && args.patterns.is_empty() {
-        return Err(anyhow!("No pattern was provided!"));
-    }
-
     // If a positional pattern was passed _and_ patterns via flags were passed, then
     // assume that the positional pattern is a path.
     if args.pattern.is_some() && !args.patterns.is_empty() {
@@ -27,6 +38,11 @@ fn validate_arguments(mut args: Args) -> Result<Args> {
         args.unrestricted = 2;
     }
 
+    // Check we have a pattern.
+    if args.pattern.is_none() && args.patterns.is_empty() {
+        return Err(anyhow!("No pattern was provided!"));
+    }
+
     Ok(args)
 }
 
@@ -37,15 +53,19 @@ pub fn print_help() {
 
 // Parses arguments from the environment (argv, etc).
 pub fn parse_arguments() -> Result<Args> {
-    validate_arguments(Args::parse())
+    if std::env::args().skip(1).count() == 0 {
+        Err(anyhow!(NoArgumentsError))
+    } else {
+        validate_arguments(Args::parse())
+    }
 }
 
-/// Parses arguments from a list. (used in tests.)
-#[allow(unused)]
+/// Parses arguments from a list.
+#[cfg(test)]
 pub fn parse_arguments_from<I, T>(itr: I) -> Result<Args>
 where
     I: IntoIterator<Item = T>,
-    T: Into<OsString> + Clone,
+    T: Into<std::ffi::OsString> + Clone,
 {
     validate_arguments(Args::parse_from(itr))
 }

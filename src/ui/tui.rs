@@ -25,6 +25,8 @@ impl Tui {
     }
 
     pub fn start(mut self) -> Result<Option<ReplacementCriteria>> {
+        // FIXME: crossterm breaks when input is piped to stdin here
+        // perhaps a similar issue to: https://github.com/crossterm-rs/crossterm/issues/188 ?
         terminal::enable_raw_mode()?;
 
         let mut stdout = io::stdout();
