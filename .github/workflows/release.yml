@@ -4,8 +4,8 @@ name: release
 on:
   push:
     # Enable when testing release infrastructure on a branch.
-    # branches:
-    # - release/xyz
+    branches:
+    - fix/release-pipeline
     tags:
     - '[0-9]+.[0-9]+.[0-9]+'
 jobs:
@@ -17,9 +17,9 @@ jobs:
   create-release:
     name: create-release
     runs-on: ubuntu-latest
-    # env:
-    #   # Set to force version number, e.g., when no tag exists.
-    #   CRATE_VERSION: TEST-0.0.0
+    env:
+      # Set to force version number, e.g., when no tag exists.
+      CRATE_VERSION: TEST-0.0.0
     steps:
       - name: Create artifacts directory
         run: mkdir artifacts
@@ -126,11 +126,17 @@ jobs:
     - name: Use Cross
       run: |
         cargo install cross
+
+    - name: Setup Environment
+      run: |
         echo "CARGO=cross" >> $GITHUB_ENV
         echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
         echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
 
-    - name: Show command used for Cargo
+        echo ${{ matrix.target }}
+        echo "$GITHUB_ENV"
+
+    - name: Check Environment
       run: |
         echo "cargo command is: ${{ env.CARGO }}"
         echo "target flag is: ${{ env.TARGET_FLAGS }}"
@@ -184,6 +190,11 @@ jobs:
         cp "$outdir"/{_rgr,rgr.bash,rgr.fish,_rgr.ps1} "$staging/complete/"
 
         if [ "${{ matrix.os }}" = "windows-2019" ]; then
+          ls -la "target/"
+          ls -la "target/${{ matrix.target }}/"
+          ls -la "target/${{ matrix.target }}/release/"
+          echo "$outdir"
+          ls -la "$outdir"
           cp "target/${{ matrix.target }}/release/rgr.exe" "$staging/"
           7z a "$staging.zip" "$staging"
           echo "ASSET=$staging.zip" >> $GITHUB_ENV
