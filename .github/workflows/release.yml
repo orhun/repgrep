@@ -1,5 +1,7 @@
 # Thanks goes to `BurntSushi/ripgrep` for the original template for GitHub Actions!
 
+# FIXME:   Warning: The `set-output` command is deprecated and will be disabled soon. Please upgrade to using Environment Files. For more information see: https://github.blog/changelog/2022-10-11-github-actions-deprecating-save-state-and-set-output-commands/
+
 name: release
 on:
   push:
@@ -137,21 +139,21 @@ jobs:
         echo "target flag is: ${{ env.TARGET_FLAGS }}"
         echo "target dir is: ${{ env.TARGET_DIR }}"
 
-    - name: Get release download URL
-      uses: actions/download-artifact@v1
-      with:
-        name: artifacts
-        path: artifacts
+    # - name: Get release download URL
+    #   uses: actions/download-artifact@v1
+    #   with:
+    #     name: artifacts
+    #     path: artifacts
 
-    - name: Set release upload URL and release version
-      shell: bash
-      run: |
-        release_upload_url="$(cat artifacts/release-upload-url)"
-        echo "RELEASE_UPLOAD_URL=$release_upload_url" >> $GITHUB_ENV
-        echo "release upload url: $RELEASE_UPLOAD_URL"
-        release_version="$(cat artifacts/release-version)"
-        echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
-        echo "release version: $RELEASE_VERSION"
+    # - name: Set release upload URL and release version
+    #   shell: bash
+    #   run: |
+    #     release_upload_url="$(cat artifacts/release-upload-url)"
+    #     echo "RELEASE_UPLOAD_URL=$release_upload_url" >> $GITHUB_ENV
+    #     echo "release upload url: $RELEASE_UPLOAD_URL"
+    #     release_version="$(cat artifacts/release-version)"
+    #     echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
+    #     echo "release version: $RELEASE_VERSION"
 
     - name: Build release binary
       run: ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
