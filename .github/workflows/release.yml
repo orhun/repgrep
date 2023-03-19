@@ -186,10 +186,12 @@ jobs:
         cp "$outdir"/{_rgr,rgr.bash,rgr.fish,_rgr.ps1} "$staging/complete/"
 
         if [ "${{ matrix.os }}" = "windows-2019" ]; then
-          ls -la "target/"
-          ls -la "target/${{ matrix.target }}"
-          ls -la "target/${{ matrix.target }}/release/"
-          ls -la "$staging/"
+          ls -la "target/" || true
+          ls -la "target/${{ matrix.target }}" || true
+          ls -la "target/${{ matrix.target }}/release/" || true
+          ls -la "target/release/" || true
+          ls -la "target/release/${{ matrix.target }}/" || true
+          ls -la "$staging/" || true
           cp "target/${{ matrix.target }}/release/rgr.exe" "$staging/"
           7z a "$staging.zip" "$staging"
           echo "ASSET=$staging.zip" >> $GITHUB_ENV
