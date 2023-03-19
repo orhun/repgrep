@@ -5,7 +5,7 @@ on:
   push:
     # Enable when testing release infrastructure on a branch.
     branches:
-    - test-release
+    - test-release2
     tags:
     - '[0-9]+.[0-9]+.[0-9]+'
 jobs:
@@ -14,46 +14,46 @@ jobs:
   # in the `build-release` job.
   #
   # This job runs only once, before the `build-release` jobs.
-  create-release:
-    name: create-release
-    runs-on: ubuntu-latest
-    # env:
-    #   # Set to force version number, e.g., when no tag exists.
-    #   CRATE_VERSION: TEST-0.0.0
-    steps:
-      - name: Create artifacts directory
-        run: mkdir artifacts
+  # create-release:
+  #   name: create-release
+  #   runs-on: ubuntu-latest
+  #   # env:
+  #   #   # Set to force version number, e.g., when no tag exists.
+  #   #   CRATE_VERSION: TEST-0.0.0
+  #   steps:
+  #     - name: Create artifacts directory
+  #       run: mkdir artifacts
 
-      - name: Get the release version from the tag
-        if: env.CRATE_VERSION == ''
-        run: |
-          echo "CRATE_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+  #     - name: Get the release version from the tag
+  #       if: env.CRATE_VERSION == ''
+  #       run: |
+  #         echo "CRATE_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - name: Create GitHub release
-        id: release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ env.CRATE_VERSION }}
-          release_name: ${{ env.CRATE_VERSION }}
+  #     - name: Create GitHub release
+  #       id: release
+  #       uses: actions/create-release@v1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         tag_name: ${{ env.CRATE_VERSION }}
+  #         release_name: ${{ env.CRATE_VERSION }}
 
-      - name: Save release upload URL to artifact
-        run: echo "${{ steps.release.outputs.upload_url }}" > artifacts/release-upload-url
+  #     - name: Save release upload URL to artifact
+  #       run: echo "${{ steps.release.outputs.upload_url }}" > artifacts/release-upload-url
 
-      - name: Save version number to artifact
-        run: echo "${{ env.CRATE_VERSION }}" > artifacts/release-version
+  #     - name: Save version number to artifact
+  #       run: echo "${{ env.CRATE_VERSION }}" > artifacts/release-version
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: artifacts
-          path: artifacts
+  #     - name: Upload artifacts
+  #       uses: actions/upload-artifact@v1
+  #       with:
+  #         name: artifacts
+  #         path: artifacts
 
   # This job runs _after_ the `create-release` job, and uses the artifacts that it created.
   build-release:
     name: build-release
-    needs: ['create-release']
+    # needs: ['create-release']
     runs-on: ${{ matrix.os }}
     env:
       # For some builds, we use cross to test on 32-bit and big-endian
